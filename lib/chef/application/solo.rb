@@ -181,6 +181,13 @@ class Chef::Application::Solo < Chef::Application
 
     Chef::Config[:solo] = true
 
+    if Chef::Config[:client_fork] == false # --no-fork
+      # We don't want to run daemonized or interval runs without forking
+      if Chef::Config[:daemonize] || Chef::Config[:interval] || Chef::Config[:splay]
+        Chef::Application.fatal!(unforked_interval_error_message)
+      end
+    end
+
     if Chef::Config[:daemonize]
       Chef::Config[:interval] ||= 1800
     end
@@ -209,6 +216,22 @@ class Chef::Application::Solo < Chef::Application
   end
 
   def run_application
+    if !Chef::Config[:client_fork] || Chef::Config[:once]
+      # Run immediately without interval sleep or splay
+      begin
+        run_chef_client(Chef::Config[:specific_recipes])
+      rescue SystemExit
+        raise
+      rescue Exception => e
+        Chef::Application.fatal!("#{e.class}: #{e.message}", 1)
+      end
+    else
+      interval_run_chef_client
+    end
+  end
+
+  private
+  def interval_run_chef_client
     if Chef::Config[:daemonize]
       Chef::Daemon.daemonize("chef-client")
     end
@@ -244,8 +267,6 @@ class Chef::Application::Solo < Chef::Application
     end
   end
 
-  private
-
   def fetch_recipe_tarball(url, path)
     Chef::Log.debug("Download recipes tarball from #{url} to #{path}")
     File.open(path, 'wb') do |f|
@@ -253,5 +274,14 @@ class Chef::Application::Solo < Chef::Application
         f.write(r.read)
       end
     end
+  end
+
+  def unforked_interval_error_message
+    "Unforked chef-client interval runs are disabled in Chef 12." +
+    "\nConfiguration settings:" +
+    "#{"\n  daemonize = #{Chef::Config[:daemonize]}" if Chef::Platform.windows?}" +
+    "#{"\n  interval  = #{Chef::Config[:interval]} seconds" if Chef::Config[:interval]}" +
+    "#{"\n  splay     = #{Chef::Config[:splay]} seconds" if Chef::Config[:splay]}" +
+    "\nEnable chef-client interval runs by setting `:client_fork = true` in your config file or adding `--fork` to your command line options."
   end
 end
