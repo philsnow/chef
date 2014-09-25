@@ -44,23 +44,6 @@ describe Chef::Application::Solo do
         Chef::Config[:splay] = nil
       end
 
-      context "when daemonize is set" do
-        before do
-          Chef::Config[:daemonize] = true
-          Chef::Platform.stub(:windows?).and_return(true)
-        end
-
-        it "should terminate with message" do
-          Chef::Application.should_receive(:fatal!).with(
-"Unforked chef-client interval runs are disabled in Chef 12.
-Configuration settings:
-  daemonize = true
-Enable chef-client interval runs by setting `:client_fork = true` in your config file or adding `--fork` to your command line options."
-          )
-          @app.reconfigure
-        end
-      end
-
       context "when interval is given" do
         before do
           Chef::Config[:interval] = 600
@@ -71,22 +54,6 @@ Enable chef-client interval runs by setting `:client_fork = true` in your config
 "Unforked chef-client interval runs are disabled in Chef 12.
 Configuration settings:
   interval  = 600 seconds
-Enable chef-client interval runs by setting `:client_fork = true` in your config file or adding `--fork` to your command line options."
-          )
-          @app.reconfigure
-        end
-      end
-
-      context "when splay is given" do
-        before do
-          Chef::Config[:splay] = 600
-        end
-
-        it "should terminate with message" do
-          Chef::Application.should_receive(:fatal!).with(
-"Unforked chef-client interval runs are disabled in Chef 12.
-Configuration settings:
-  splay     = 600 seconds
 Enable chef-client interval runs by setting `:client_fork = true` in your config file or adding `--fork` to your command line options."
           )
           @app.reconfigure
